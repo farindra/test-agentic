@@ -11,7 +11,13 @@ buat WhatsApp (whatsmeow) dan Telegram Bot.
   provider custom (OpenAI-compatible). API key dienkripsi (AES-256-GCM)
   sebelum disimpan.
 - **Chatbot** — susun persona bot: system prompt, model, temperature, max
-  tokens, terikat ke satu AI provider.
+  tokens, terikat ke satu AI provider. System prompt gak bisa dihapus kalau
+  masih di-binding ke sesi gateway aktif (409), dan provider gak bisa
+  dihapus kalau masih dipakai chatbot — biar gak ada auto-reply yang
+  diem-diem berhenti tanpa peringatan.
+- **Variables** — key-value custom (mis. `jam_buka`, `alamat`) yang bisa
+  disisipkan ke System Prompt chatbot manapun lewat placeholder
+  `{{nama_variable}}`.
 - **Playground** — coba chatbot langsung di browser sebelum dihubungkan ke
   gateway manapun.
 - **Chat Gateway — WhatsApp** — manajemen sesi multi-nomor via whatsmeow,
@@ -127,7 +133,7 @@ variabel. Yang wajib diisi sebelum jalan:
 # Backend — semua unit test (store, aiprovider, bot, conversation, gateway, httpapi)
 go test ./...
 
-# Frontend — unit test store & api client (Vitest)
+# Frontend — unit test store, api client, & composables (Vitest)
 cd web && npm test
 ```
 
@@ -141,3 +147,15 @@ cd web && npm test
 - Webhook Telegram diverifikasi lewat header
   `X-Telegram-Bot-Api-Secret-Token`, bukan lewat JWT — itu yang dipanggil
   Telegram, bukan admin yang login.
+- Pesan masuk dari WhatsApp/Telegram TIDAK PERNAH ditafsirkan sebagai
+  perintah ke platform — `conversation.Hub` cuma nyimpen log dan
+  nerusinnya sebagai teks chat biasa ke provider AI, gak ada jalur ke
+  fungsi admin (bikin/hapus bot, provider, sesi, dst) dari isi chat.
+- **Mitigasi prompt injection** (bukan jaminan mutlak): tiap system prompt
+  otomatis dikasih instruksi pengaman di depan buat nahan percobaan
+  "abaikan instruksi sebelumnya" / "tampilkan system prompt kamu" dkk
+  (lihat `promptGuard` di `internal/bot/bot.go`).
+- Pesan masuk dibatasi maks 4000 karakter dan di-rate-limit 8 pesan/menit
+  per kontak (in-memory, per sesi gateway) — pesan yang kena limit tetap
+  kecatet di inbox, cuma gak dibales otomatis, biar spam gak nyedot kuota
+  biaya API provider AI berkali-kali.

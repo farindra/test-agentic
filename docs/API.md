@@ -65,14 +65,31 @@ Sama seperti create. `api_key` boleh dikosongkan — kalau kosong, key lama
 dipertahankan (gak perlu re-submit secret tiap edit).
 
 ### `DELETE /providers/:id`
+Gagal dengan **409** kalau providernya masih dipakai satu atau lebih
+chatbot (`{"error": "provider masih dipakai N chatbot — ..."}`) — hapus
+atau pindahin chatbot itu ke provider lain dulu.
+
 ### `POST /providers/:id/test`
 Ngirim satu pesan ping ke provider, buat validasi kredensial dari UI.
 ```json
 // response 200
 { "ok": true, "reply": "pong" }
-// response 502
+// response 400
 { "error": "provider error: invalid api key" }
 ```
+
+### `POST /providers/models`
+Ngambil daftar model asli dari API provider (buat dropdown "Model" di form
+Chatbot). Bisa dipanggil dengan config draft (provider belum tersimpan)
+atau provider yang udah ada.
+```json
+// request
+{ "type": "openai", "base_url": "", "api_key": "sk-...", "provider_id": null }
+// response 200
+{ "models": ["gpt-4o", "gpt-4o-mini", "..."] }
+```
+`api_key` boleh dikosongkan kalau `provider_id` diisi — fallback ambil API
+key yang udah tersimpan punya provider itu, gak perlu re-submit secret.
 
 ---
 
@@ -82,10 +99,18 @@ Ngirim satu pesan ping ke provider, buat validasi kredensial dari UI.
 ```json
 // POST/PUT request
 { "name": "CS Bot", "provider_id": "uuid", "model": "gpt-4o-mini",
-  "system_prompt": "Kamu asisten CS yang ramah...",
+  "system_prompt": "Kamu asisten CS yang ramah. Kami buka jam {{jam_buka}}.",
   "temperature": 0.7, "max_tokens": 1024, "is_active": true }
 ```
-`model` kosong = pakai `default_model` dari provider-nya.
+`model` kosong = pakai `default_model` dari provider-nya. `system_prompt`
+boleh pakai placeholder `{{nama_variable}}` — disubstitusi dari
+[Variables](#variables) tiap kali bot balas; placeholder yang key-nya gak
+ketemu dibiarin apa adanya.
+
+`DELETE /bots/:id` gagal dengan **409** kalau bot-nya masih di-binding ke
+satu atau lebih sesi WhatsApp/Telegram
+(`{"error": "bot masih dipakai N sesi WhatsApp/Telegram — ..."}`) — lepas
+binding-nya dulu lewat `PATCH .../sessions/:id` (`bot_id: ""`).
 
 ---
 
@@ -213,15 +238,26 @@ mematikan auto-reply di seluruh sesi gateway-nya).
 
 ---
 
-## Settings
+## Variables
 
-### `GET /settings`
+Key-value custom yang bisa disisipkan ke `system_prompt` chatbot manapun
+lewat placeholder `{{nama_variable}}` — lihat [Chatbot](#chatbot).
+
+### `GET /variables`
 ```json
-{ "default_bot_id": "uuid" }
+{ "jam_buka": "09.00 - 17.00", "alamat": "Jl. Contoh No. 1" }
 ```
 
-### `PUT /settings`
-Body = object key-value, di-upsert semua.
+### `PUT /variables/:key`
+Upsert satu key.
 ```json
-{ "default_bot_id": "uuid" }
+// request
+{ "value": "09.00 - 17.00" }
+// response 200
+{ "key": "jam_buka", "value": "09.00 - 17.00" }
+```
+
+### `DELETE /variables/:key`
+```json
+{ "deleted": true }
 ```
