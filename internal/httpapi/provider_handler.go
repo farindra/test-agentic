@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -132,7 +133,21 @@ func (a *API) updateProvider(c *fiber.Ctx) error {
 func (a *API) deleteProvider(c *fiber.Ctx) error {
 	ctx, cancel := ctx15(c)
 	defer cancel()
-	if err := a.st.DeleteProvider(ctx, c.Params("id")); errors.Is(err, store.ErrNotFound) {
+	id := c.Params("id")
+
+	// bots.provider_id di DB itu ON DELETE CASCADE — tanpa pengecekan ini,
+	// hapus provider diem-diem ngehapus SEMUA chatbot yang pakai dia juga.
+	n, err := a.st.CountBotsByProvider(ctx, id)
+	if err != nil {
+		return errJSON(c, fiber.StatusInternalServerError, err)
+	}
+	if n > 0 {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+			"error": fmt.Sprintf("provider masih dipakai %d chatbot — hapus atau pindahin chatbot itu ke provider lain dulu", n),
+		})
+	}
+
+	if err := a.st.DeleteProvider(ctx, id); errors.Is(err, store.ErrNotFound) {
 		return errJSON(c, fiber.StatusNotFound, err)
 	} else if err != nil {
 		return errJSON(c, fiber.StatusInternalServerError, err)

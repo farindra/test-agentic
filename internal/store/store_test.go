@@ -207,28 +207,41 @@ func TestConversationAndMessageFlow(t *testing.T) {
 	}
 }
 
-func TestSettings(t *testing.T) {
+func TestVariables(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()
 
-	if err := s.SetSetting(ctx, "default_bot_id", "abc"); err != nil {
-		t.Fatalf("SetSetting: %v", err)
+	if err := s.SetVariable(ctx, "jam_buka", "09.00"); err != nil {
+		t.Fatalf("SetVariable: %v", err)
 	}
-	v, err := s.GetSetting(ctx, "default_bot_id")
-	if err != nil || v != "abc" {
-		t.Fatalf("GetSetting: %q %v", v, err)
+	v, err := s.GetVariable(ctx, "jam_buka")
+	if err != nil || v != "09.00" {
+		t.Fatalf("GetVariable: %q %v", v, err)
 	}
 
-	if err := s.SetSetting(ctx, "default_bot_id", "xyz"); err != nil {
-		t.Fatalf("SetSetting update: %v", err)
+	if err := s.SetVariable(ctx, "jam_buka", "10.00"); err != nil {
+		t.Fatalf("SetVariable update: %v", err)
 	}
-	v, _ = s.GetSetting(ctx, "default_bot_id")
-	if v != "xyz" {
+	v, _ = s.GetVariable(ctx, "jam_buka")
+	if v != "10.00" {
 		t.Fatalf("expected updated value, got %q", v)
 	}
 
-	missing, err := s.GetSetting(ctx, "not-set")
+	missing, err := s.GetVariable(ctx, "not-set")
 	if err != nil || missing != "" {
 		t.Fatalf("expected empty string for missing key, got %q %v", missing, err)
+	}
+
+	all, err := s.ListVariables(ctx)
+	if err != nil || all["jam_buka"] != "10.00" {
+		t.Fatalf("ListVariables: %+v %v", all, err)
+	}
+
+	if err := s.DeleteVariable(ctx, "jam_buka"); err != nil {
+		t.Fatalf("DeleteVariable: %v", err)
+	}
+	all, _ = s.ListVariables(ctx)
+	if _, ok := all["jam_buka"]; ok {
+		t.Fatalf("jam_buka harusnya udah kehapus, masih ada: %+v", all)
 	}
 }

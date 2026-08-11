@@ -6,11 +6,11 @@ const routes = [
   { path: '/', name: 'dashboard', component: () => import('../views/Dashboard.vue') },
   { path: '/providers', name: 'providers', component: () => import('../views/Providers.vue') },
   { path: '/bots', name: 'bots', component: () => import('../views/Bots.vue') },
+  { path: '/variables', name: 'variables', component: () => import('../views/Variables.vue') },
   { path: '/playground', name: 'playground', component: () => import('../views/Playground.vue') },
   { path: '/chat-gateway/whatsapp', name: 'gateway-whatsapp', component: () => import('../views/gateway/WhatsAppSessions.vue') },
   { path: '/chat-gateway/telegram', name: 'gateway-telegram', component: () => import('../views/gateway/TelegramBots.vue') },
   { path: '/inbox', name: 'inbox', component: () => import('../views/Inbox.vue') },
-  { path: '/settings', name: 'settings', component: () => import('../views/Settings.vue') },
 ]
 
 const router = createRouter({

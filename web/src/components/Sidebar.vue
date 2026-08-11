@@ -35,6 +35,11 @@ function logout() {
         <span class="icon">✦</span> Chatbot
       </div>
     </RouterLink>
+    <RouterLink to="/variables" custom v-slot="{ navigate, isActive }">
+      <div class="sidebar-link" :class="{ active: isActive }" @click="navigate">
+        <span class="icon">{ }</span> Variables
+      </div>
+    </RouterLink>
     <RouterLink to="/playground" custom v-slot="{ navigate, isActive }">
       <div class="sidebar-link" :class="{ active: isActive }" @click="navigate">
         <span class="icon">▶</span> Playground
@@ -55,13 +60,6 @@ function logout() {
     <RouterLink to="/inbox" custom v-slot="{ navigate, isActive }">
       <div class="sidebar-link" :class="{ active: isActive }" @click="navigate">
         <span class="icon">☰</span> Inbox
-      </div>
-    </RouterLink>
-
-    <div class="sidebar-section">Lainnya</div>
-    <RouterLink to="/settings" custom v-slot="{ navigate, isActive }">
-      <div class="sidebar-link" :class="{ active: isActive }" @click="navigate">
-        <span class="icon">⚬</span> Pengaturan
       </div>
     </RouterLink>
 

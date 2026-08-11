@@ -90,9 +90,10 @@ func (a *API) Register(app *fiber.App) {
 
 	api.Get("/dashboard/summary", a.dashboardSummary)
 
-	settings := api.Group("/settings")
-	settings.Get("", a.listSettings)
-	settings.Put("", a.updateSettings)
+	variables := api.Group("/variables")
+	variables.Get("", a.listVariables)
+	variables.Put("/:key", a.setVariable)
+	variables.Delete("/:key", a.deleteVariable)
 }
 
 func ctx15(c *fiber.Ctx) (context.Context, context.CancelFunc) {

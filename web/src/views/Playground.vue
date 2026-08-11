@@ -9,6 +9,7 @@ const messages = ref([])
 const draft = ref('')
 const sending = ref(false)
 const error = ref('')
+const loading = ref(true)
 const newBotId = ref('')
 
 const activeSession = computed(() => sessions.value.find((s) => s.id === activeSessionId.value))
@@ -25,17 +26,27 @@ async function loadSessions() {
 }
 
 async function selectSession(id) {
+  error.value = ''
   activeSessionId.value = id
-  const res = await api.get(`/playground/sessions/${id}/messages`)
-  messages.value = res.messages || []
+  try {
+    const res = await api.get(`/playground/sessions/${id}/messages`)
+    messages.value = res.messages || []
+  } catch (e) {
+    error.value = e.message
+  }
 }
 
 async function createSession() {
   if (!newBotId.value) return
-  const bot = bots.value.find((b) => b.id === newBotId.value)
-  const res = await api.post('/playground/sessions', { bot_id: newBotId.value, title: `Chat dengan ${bot?.name || 'Bot'}` })
-  sessions.value.unshift(res)
-  await selectSession(res.id)
+  error.value = ''
+  try {
+    const bot = bots.value.find((b) => b.id === newBotId.value)
+    const res = await api.post('/playground/sessions', { bot_id: newBotId.value, title: `Chat dengan ${bot?.name || 'Bot'}` })
+    sessions.value.unshift(res)
+    await selectSession(res.id)
+  } catch (e) {
+    error.value = e.message
+  }
 }
 
 async function send() {
@@ -56,9 +67,15 @@ async function send() {
 }
 
 onMounted(async () => {
-  await loadBots()
-  await loadSessions()
-  if (sessions.value.length) await selectSession(sessions.value[0].id)
+  try {
+    await loadBots()
+    await loadSessions()
+    if (sessions.value.length) await selectSession(sessions.value[0].id)
+  } catch (e) {
+    error.value = e.message
+  } finally {
+    loading.value = false
+  }
 })
 </script>
 
@@ -77,9 +94,11 @@ onMounted(async () => {
   </div>
 
   <div v-if="error" class="alert alert-danger">{{ error }}</div>
-  <div v-if="!bots.length" class="alert alert-danger">Belum ada chatbot. Bikin dulu di menu "Chatbot".</div>
+  <div v-if="!loading && !bots.length" class="alert alert-danger">Belum ada chatbot. Bikin dulu di menu "Chatbot".</div>
 
-  <div class="chat-panel" v-if="sessions.length">
+  <div v-if="loading" class="loading-state card"><span class="spinner"></span> Memuat playground...</div>
+
+  <div class="chat-panel" v-else-if="sessions.length">
     <div class="chat-list">
       <div
         v-for="s in sessions" :key="s.id"

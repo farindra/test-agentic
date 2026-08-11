@@ -233,4 +233,88 @@ func TestListProviderModelsFallsBackToStoredKeyOnEdit(t *testing.T) {
 	}
 }
 
+func TestVariablesCRUDViaHTTP(t *testing.T) {
+	env := newTestEnv(t)
+
+	setResp := env.do(t, http.MethodPut, "/api/variables/jam_buka", setVariableReq{Value: "09.00"}, true)
+	if setResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 set, got %d", setResp.StatusCode)
+	}
+
+	listResp := env.do(t, http.MethodGet, "/api/variables", nil, true)
+	var vars map[string]string
+	json.NewDecoder(listResp.Body).Decode(&vars)
+	if vars["jam_buka"] != "09.00" {
+		t.Fatalf("expected jam_buka=09.00, got %+v", vars)
+	}
+
+	delResp := env.do(t, http.MethodDelete, "/api/variables/jam_buka", nil, true)
+	if delResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 delete, got %d", delResp.StatusCode)
+	}
+	listResp2 := env.do(t, http.MethodGet, "/api/variables", nil, true)
+	var vars2 map[string]string
+	json.NewDecoder(listResp2.Body).Decode(&vars2)
+	if _, ok := vars2["jam_buka"]; ok {
+		t.Fatalf("jam_buka harusnya udah kehapus, masih ada: %+v", vars2)
+	}
+}
+
+func TestDeleteBotBlockedWhileBoundToGatewaySession(t *testing.T) {
+	env := newTestEnv(t)
+
+	provResp := env.do(t, http.MethodPost, "/api/providers", providerReq{Name: "P", Type: "custom", BaseURL: "http://example.invalid", IsActive: boolPtr(true)}, true)
+	var prov providerView
+	json.NewDecoder(provResp.Body).Decode(&prov)
+
+	botResp := env.do(t, http.MethodPost, "/api/bots", botReq{Name: "CS", ProviderID: prov.ID}, true)
+	var createdBot store.Bot
+	json.NewDecoder(botResp.Body).Decode(&createdBot)
+
+	sessResp := env.do(t, http.MethodPost, "/api/gateway/whatsapp/sessions", createSessionReq{Label: "WA 1"}, true)
+	var sess sessionView
+	json.NewDecoder(sessResp.Body).Decode(&sess)
+
+	bindResp := env.do(t, http.MethodPatch, "/api/gateway/whatsapp/sessions/"+sess.ID, updateBindingReq{BotID: &createdBot.ID, AutoReply: boolPtr(true)}, true)
+	if bindResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 binding, got %d", bindResp.StatusCode)
+	}
+
+	delResp := env.do(t, http.MethodDelete, "/api/bots/"+createdBot.ID, nil, true)
+	if delResp.StatusCode != http.StatusConflict {
+		t.Fatalf("expected 409 karena bot masih di-binding, got %d", delResp.StatusCode)
+	}
+
+	// lepas binding-nya dulu, baru boleh kehapus
+	emptyBotID := ""
+	env.do(t, http.MethodPatch, "/api/gateway/whatsapp/sessions/"+sess.ID, updateBindingReq{BotID: &emptyBotID, AutoReply: boolPtr(true)}, true)
+	delResp2 := env.do(t, http.MethodDelete, "/api/bots/"+createdBot.ID, nil, true)
+	if delResp2.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 setelah binding dilepas, got %d", delResp2.StatusCode)
+	}
+}
+
+func TestDeleteProviderBlockedWhileUsedByBot(t *testing.T) {
+	env := newTestEnv(t)
+
+	provResp := env.do(t, http.MethodPost, "/api/providers", providerReq{Name: "P", Type: "custom", BaseURL: "http://example.invalid", IsActive: boolPtr(true)}, true)
+	var prov providerView
+	json.NewDecoder(provResp.Body).Decode(&prov)
+
+	botResp := env.do(t, http.MethodPost, "/api/bots", botReq{Name: "CS", ProviderID: prov.ID}, true)
+	var createdBot store.Bot
+	json.NewDecoder(botResp.Body).Decode(&createdBot)
+
+	delResp := env.do(t, http.MethodDelete, "/api/providers/"+prov.ID, nil, true)
+	if delResp.StatusCode != http.StatusConflict {
+		t.Fatalf("expected 409 karena provider masih dipakai bot, got %d", delResp.StatusCode)
+	}
+
+	env.do(t, http.MethodDelete, "/api/bots/"+createdBot.ID, nil, true)
+	delResp2 := env.do(t, http.MethodDelete, "/api/providers/"+prov.ID, nil, true)
+	if delResp2.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 setelah bot dihapus, got %d", delResp2.StatusCode)
+	}
+}
+
 func boolPtr(b bool) *bool { return &b }

@@ -48,4 +48,29 @@ describe('api client', () => {
     await expect(api.get('/bots')).rejects.toBeInstanceOf(ApiError)
     expect(getToken()).toBe('')
   })
+
+  it('throws a clear message when the network fails (no internet)', async () => {
+    global.fetch.mockRejectedValue(new TypeError('Failed to fetch'))
+
+    await expect(api.get('/bots')).rejects.toThrow('periksa koneksi internet')
+  })
+
+  it('throws a timeout-specific message when fetch is aborted', async () => {
+    const abortError = new Error('aborted')
+    abortError.name = 'AbortError'
+    global.fetch.mockRejectedValue(abortError)
+
+    await expect(api.get('/bots')).rejects.toThrow('Waktu tunggu habis')
+  })
+
+  it('passes an AbortSignal so requests can be cancelled on timeout', async () => {
+    global.fetch.mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200, headers: { 'content-type': 'application/json' } })
+    )
+
+    await api.get('/bots')
+
+    const [, opts] = global.fetch.mock.calls[0]
+    expect(opts.signal).toBeInstanceOf(AbortSignal)
+  })
 })

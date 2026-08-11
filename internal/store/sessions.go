@@ -89,6 +89,15 @@ func (s *Store) SetTelegramUsername(ctx context.Context, id, username string) er
 	return err
 }
 
+// CountSessionsByBot: dipakai buat nolak hapus bot yang masih di-binding ke
+// sesi gateway (bot_id di gateway_sessions ON DELETE SET NULL, jadi tanpa
+// pengecekan ini hapus bot bakal diem-diem ngelepas binding-nya).
+func (s *Store) CountSessionsByBot(ctx context.Context, botID string) (int, error) {
+	var n int
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(1) FROM gateway_sessions WHERE bot_id = ?`, botID).Scan(&n)
+	return n, err
+}
+
 func (s *Store) DeleteSession(ctx context.Context, id string) error {
 	res, err := s.db.ExecContext(ctx, `DELETE FROM gateway_sessions WHERE id=?`, id)
 	if err != nil {

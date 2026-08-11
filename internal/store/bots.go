@@ -48,6 +48,15 @@ func (s *Store) UpdateBot(ctx context.Context, b Bot) (*Bot, error) {
 	return s.GetBot(ctx, b.ID)
 }
 
+// CountBotsByProvider: dipakai buat nolak hapus provider yang masih dipakai
+// chatbot (bots.provider_id ON DELETE CASCADE — tanpa pengecekan ini, hapus
+// provider diem-diem ngehapus semua chatbot yang pakai dia juga).
+func (s *Store) CountBotsByProvider(ctx context.Context, providerID string) (int, error) {
+	var n int
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(1) FROM bots WHERE provider_id = ?`, providerID).Scan(&n)
+	return n, err
+}
+
 func (s *Store) DeleteBot(ctx context.Context, id string) error {
 	res, err := s.db.ExecContext(ctx, `DELETE FROM bots WHERE id=?`, id)
 	if err != nil {

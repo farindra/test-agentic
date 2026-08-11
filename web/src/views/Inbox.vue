@@ -6,18 +6,31 @@ const conversations = ref([])
 const activeId = ref('')
 const messages = ref([])
 const error = ref('')
+const loading = ref(true)
 
 const active = computed(() => conversations.value.find((c) => c.id === activeId.value))
 
 async function load() {
-  const res = await api.get('/conversations')
-  conversations.value = res.conversations || []
+  error.value = ''
+  try {
+    const res = await api.get('/conversations')
+    conversations.value = res.conversations || []
+  } catch (e) {
+    error.value = e.message
+  } finally {
+    loading.value = false
+  }
 }
 
 async function select(id) {
+  error.value = ''
   activeId.value = id
-  const res = await api.get(`/conversations/${id}/messages`)
-  messages.value = res.messages || []
+  try {
+    const res = await api.get(`/conversations/${id}/messages`)
+    messages.value = res.messages || []
+  } catch (e) {
+    error.value = e.message
+  }
 }
 
 async function toggleAutoReply() {
@@ -43,7 +56,9 @@ onMounted(load)
 
   <div v-if="error" class="alert alert-danger">{{ error }}</div>
 
-  <div class="chat-panel" v-if="conversations.length">
+  <div v-if="loading" class="loading-state card"><span class="spinner"></span> Memuat inbox...</div>
+
+  <div class="chat-panel" v-else-if="conversations.length">
     <div class="chat-list">
       <div
         v-for="c in conversations" :key="c.id"

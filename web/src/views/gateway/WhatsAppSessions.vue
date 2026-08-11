@@ -5,6 +5,7 @@ import { api } from '../../api/client'
 const sessions = ref([])
 const bots = ref([])
 const error = ref('')
+const loading = ref(true)
 const showCreate = ref(false)
 const newLabel = ref('')
 
@@ -20,6 +21,8 @@ async function load() {
     bots.value = b.bots || []
   } catch (e) {
     error.value = e.message
+  } finally {
+    loading.value = false
   }
 }
 
@@ -125,7 +128,8 @@ onUnmounted(() => {
   <div v-if="error" class="alert alert-danger">{{ error }}</div>
 
   <div class="card" style="padding: 0">
-    <table class="table" v-if="sessions.length">
+    <div v-if="loading" class="loading-state"><span class="spinner"></span> Memuat sesi WhatsApp...</div>
+    <table class="table" v-else-if="sessions.length">
       <thead>
         <tr><th>Label</th><th>Nomor</th><th>Status</th><th>Bot</th><th>Auto-Reply</th><th></th></tr>
       </thead>

@@ -4,12 +4,15 @@ import { api } from '../api/client'
 
 const summary = ref(null)
 const error = ref('')
+const loading = ref(true)
 
 onMounted(async () => {
   try {
     summary.value = await api.get('/dashboard/summary')
   } catch (e) {
     error.value = e.message
+  } finally {
+    loading.value = false
   }
 })
 </script>
@@ -23,6 +26,8 @@ onMounted(async () => {
   </div>
 
   <div v-if="error" class="alert alert-danger">{{ error }}</div>
+
+  <div v-if="loading" class="loading-state"><span class="spinner"></span> Memuat dashboard...</div>
 
   <div v-if="summary" class="grid grid-4">
     <div class="card stat-card">

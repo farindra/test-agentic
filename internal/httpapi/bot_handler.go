@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -90,7 +91,22 @@ func (a *API) updateBot(c *fiber.Ctx) error {
 func (a *API) deleteBot(c *fiber.Ctx) error {
 	ctx, cancel := ctx15(c)
 	defer cancel()
-	if err := a.st.DeleteBot(ctx, c.Params("id")); errors.Is(err, store.ErrNotFound) {
+	id := c.Params("id")
+
+	// gateway_sessions.bot_id di DB itu ON DELETE SET NULL — tanpa pengecekan
+	// ini, hapus bot bakal diem-diem ngelepas binding di sesi WA/Telegram yang
+	// masih make dia, auto-reply berhenti tanpa peringatan apa pun.
+	n, err := a.st.CountSessionsByBot(ctx, id)
+	if err != nil {
+		return errJSON(c, fiber.StatusInternalServerError, err)
+	}
+	if n > 0 {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+			"error": fmt.Sprintf("bot masih dipakai %d sesi WhatsApp/Telegram — lepas binding-nya dulu di menu Chat Gateway", n),
+		})
+	}
+
+	if err := a.st.DeleteBot(ctx, id); errors.Is(err, store.ErrNotFound) {
 		return errJSON(c, fiber.StatusNotFound, err)
 	} else if err != nil {
 		return errJSON(c, fiber.StatusInternalServerError, err)

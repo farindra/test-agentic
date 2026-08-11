@@ -5,6 +5,7 @@ import { api } from '../api/client'
 const bots = ref([])
 const providers = ref([])
 const error = ref('')
+const loading = ref(true)
 const showModal = ref(false)
 const editing = ref(null)
 
@@ -15,6 +16,13 @@ const form = reactive({
 const modelOptions = ref([])
 const modelsError = ref('')
 const loadingModels = ref(false)
+
+// Ditaro sebagai konstanta script, BUKAN ditulis langsung di template — Vue
+// nutup interpolasi {{ }} di kurung kurawal PERTAMA yang ketemu, jadi
+// nulis literal "{{nama_variable}}" langsung di markup bikin parser bingung
+// (nutup terlalu awal, unterminated string). Direferensi lewat satu pasang
+// {{ }} tunggal, ini aman.
+const VARIABLE_PLACEHOLDER_EXAMPLE = '{{nama_variable}}'
 
 function providerName(id) {
   return providers.value.find((p) => p.id === id)?.name || '—'
@@ -62,6 +70,8 @@ async function load() {
     providers.value = p.providers || []
   } catch (e) {
     error.value = e.message
+  } finally {
+    loading.value = false
   }
 }
 
@@ -124,7 +134,8 @@ onMounted(load)
   </div>
 
   <div class="card" style="padding: 0">
-    <table class="table" v-if="bots.length">
+    <div v-if="loading" class="loading-state"><span class="spinner"></span> Memuat chatbot...</div>
+    <table class="table" v-else-if="bots.length">
       <thead>
         <tr><th>Nama</th><th>Provider</th><th>Model</th><th>Status</th><th></th></tr>
       </thead>
@@ -193,6 +204,9 @@ onMounted(load)
         <div class="field">
           <label>System Prompt</label>
           <textarea class="textarea" v-model="form.system_prompt" rows="5" placeholder="Kamu adalah asisten customer service yang ramah..."></textarea>
+          <span class="text-muted" style="font-size: 12px">
+            Bisa pakai <code>{{ VARIABLE_PLACEHOLDER_EXAMPLE }}</code> — kelola nilainya di menu Variables.
+          </span>
         </div>
         <div class="field-row">
           <div class="field">

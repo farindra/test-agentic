@@ -15,7 +15,7 @@ func TestOpenRunsMigrations(t *testing.T) {
 	}
 	defer database.Close()
 
-	tables := []string{"users", "ai_providers", "bots", "gateway_sessions", "conversations", "messages", "settings"}
+	tables := []string{"users", "ai_providers", "bots", "gateway_sessions", "conversations", "messages", "variables"}
 	for _, tbl := range tables {
 		var name string
 		err := database.QueryRow(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`, tbl).Scan(&name)

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"test-agentic/internal/bot"
@@ -177,5 +178,74 @@ func TestHandleIncomingProviderErrorDoesNotFailButLogsMessage(t *testing.T) {
 	msgs, _ := st.ListMessages(ctx, conv.ID, 10)
 	if len(msgs) != 1 || msgs[0].Direction != "in" {
 		t.Fatalf("pesan masuk tetap harus tercatat walau bot gagal balas: %+v", msgs)
+	}
+}
+
+func TestHandleIncomingSkipsReplyWhenMessageTooLong(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	botID := newBotWithReply(t, st, "harusnya tidak terpanggil")
+
+	sess, err := st.CreateSession(ctx, store.GatewaySession{Kind: store.KindWhatsApp, Label: "WA", AutoReply: true, BotID: &botID})
+	if err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+
+	sendCalled := false
+	send := func(ctx context.Context, text string) error { sendCalled = true; return nil }
+
+	longText := strings.Repeat("a", maxMessageLength+1)
+	hub := New(st, bot.New(st))
+	if err := hub.HandleIncoming(ctx, sess.ID, "628111", "Budi", longText, send); err != nil {
+		t.Fatalf("HandleIncoming: %v", err)
+	}
+	if sendCalled {
+		t.Fatalf("send seharusnya TIDAK dipanggil karena pesan melebihi batas panjang")
+	}
+
+	conv, _ := st.GetOrCreateConversation(ctx, sess.ID, "628111", "Budi")
+	msgs, _ := st.ListMessages(ctx, conv.ID, 10)
+	if len(msgs) != 1 || msgs[0].Direction != "in" {
+		t.Fatalf("pesan yang kepanjangan tetap harus tercatat: %+v", msgs)
+	}
+}
+
+func TestHandleIncomingSkipsReplyWhenRateLimited(t *testing.T) {
+	st := newTestStore(t)
+	ctx := context.Background()
+	botID := newBotWithReply(t, st, "balasan")
+
+	sess, err := st.CreateSession(ctx, store.GatewaySession{Kind: store.KindWhatsApp, Label: "WA", AutoReply: true, BotID: &botID})
+	if err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+
+	sendCount := 0
+	send := func(ctx context.Context, text string) error { sendCount++; return nil }
+
+	hub := New(st, bot.New(st))
+	for i := 0; i < rateLimitMax; i++ {
+		if err := hub.HandleIncoming(ctx, sess.ID, "628111", "Budi", "Halo", send); err != nil {
+			t.Fatalf("HandleIncoming ke-%d: %v", i+1, err)
+		}
+	}
+	if sendCount != rateLimitMax {
+		t.Fatalf("expected %d balasan sebelum kena limit, got %d", rateLimitMax, sendCount)
+	}
+
+	// pesan berikutnya, masih dalam window yang sama, harusnya kena limit
+	if err := hub.HandleIncoming(ctx, sess.ID, "628111", "Budi", "Halo lagi", send); err != nil {
+		t.Fatalf("HandleIncoming: %v", err)
+	}
+	if sendCount != rateLimitMax {
+		t.Fatalf("send seharusnya TIDAK bertambah setelah kena rate limit, got count=%d", sendCount)
+	}
+
+	// kontak lain gak boleh kepengaruh limit punya "628111"
+	if err := hub.HandleIncoming(ctx, sess.ID, "628999", "Ani", "Halo juga", send); err != nil {
+		t.Fatalf("HandleIncoming kontak lain: %v", err)
+	}
+	if sendCount != rateLimitMax+1 {
+		t.Fatalf("kontak lain seharusnya tetap dibales, got count=%d", sendCount)
 	}
 }

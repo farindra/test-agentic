@@ -4,6 +4,7 @@ import { api } from '../api/client'
 
 const providers = ref([])
 const error = ref('')
+const loading = ref(true)
 const showModal = ref(false)
 const editing = ref(null)
 const testResult = reactive({})
@@ -26,6 +27,8 @@ async function load() {
     providers.value = res.providers || []
   } catch (e) {
     error.value = e.message
+  } finally {
+    loading.value = false
   }
 }
 
@@ -93,7 +96,8 @@ onMounted(load)
   <div v-if="error" class="alert alert-danger">{{ error }}</div>
 
   <div class="card" style="padding: 0">
-    <table class="table" v-if="providers.length">
+    <div v-if="loading" class="loading-state"><span class="spinner"></span> Memuat provider...</div>
+    <table class="table" v-else-if="providers.length">
       <thead>
         <tr>
           <th>Nama</th><th>Tipe</th><th>Model Default</th><th>API Key</th><th>Status</th><th></th>

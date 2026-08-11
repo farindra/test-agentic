@@ -8,6 +8,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
+	"unicode/utf8"
 
 	"test-agentic/internal/bot"
 	"test-agentic/internal/store"
@@ -15,13 +17,28 @@ import (
 
 const historyWindow = 20
 
+// maxMessageLength ngebatesin jumlah karakter pesan masuk yang diproses ke
+// AI provider. Bukan cuma soal biaya (tiap karakter = token = biaya) — pesan
+// raksasa juga cara gampang buat nge-flood dengan satu kali kirim.
+const maxMessageLength = 4000
+
+// Rate limit spam per kontak: maksimal rateLimitMax pesan dalam
+// rateLimitWindow. Bot tetap CATET pesan yang kena limit (buat audit di
+// inbox), cuma gak dibales otomatis — biar spam gak nyedot kuota biaya
+// provider AI berkali-kali dalam waktu singkat.
+const (
+	rateLimitWindow = time.Minute
+	rateLimitMax    = 8
+)
+
 type Hub struct {
-	st   *store.Store
-	orch *bot.Orchestrator
+	st      *store.Store
+	orch    *bot.Orchestrator
+	limiter *rateLimiter
 }
 
 func New(st *store.Store, orch *bot.Orchestrator) *Hub {
-	return &Hub{st: st, orch: orch}
+	return &Hub{st: st, orch: orch, limiter: newRateLimiter(rateLimitWindow, rateLimitMax)}
 }
 
 // Sender ngirim teks balasan lewat transport gateway asal pesan (whatsmeow
@@ -54,6 +71,16 @@ func (h *Hub) HandleIncoming(ctx context.Context, sessionID, contactID, contactN
 
 	if !sess.AutoReply || !conv.AutoReply || sess.BotID == nil {
 		return nil // sengaja diem: sesi/percakapan lagi handover ke manusia, atau belum ada bot di-binding
+	}
+
+	if utf8.RuneCountInString(text) > maxMessageLength {
+		log.Printf("conversation: pesan dari %s (sesi %s) %d karakter, lewat batas %d — auto-reply dilewati", contactID, sessionID, utf8.RuneCountInString(text), maxMessageLength)
+		return nil
+	}
+
+	if !h.limiter.allow(sessionID + ":" + contactID) {
+		log.Printf("conversation: rate limit kena buat %s (sesi %s) — auto-reply dilewati", contactID, sessionID)
+		return nil
 	}
 
 	replyText, err := h.orch.Reply(ctx, *sess.BotID, history, text)
