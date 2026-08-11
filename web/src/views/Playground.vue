@@ -11,6 +11,7 @@ const sending = ref(false)
 const error = ref('')
 const loading = ref(true)
 const newBotId = ref('')
+const mobileShowThread = ref(false)
 
 const activeSession = computed(() => sessions.value.find((s) => s.id === activeSessionId.value))
 
@@ -28,6 +29,7 @@ async function loadSessions() {
 async function selectSession(id) {
   error.value = ''
   activeSessionId.value = id
+  mobileShowThread.value = true
   try {
     const res = await api.get(`/playground/sessions/${id}/messages`)
     messages.value = res.messages || []
@@ -98,7 +100,7 @@ onMounted(async () => {
 
   <div v-if="loading" class="loading-state card"><span class="spinner"></span> Memuat playground...</div>
 
-  <div class="chat-panel" v-else-if="sessions.length">
+  <div class="chat-panel" :class="{ 'mobile-show-thread': mobileShowThread }" v-else-if="sessions.length">
     <div class="chat-list">
       <div
         v-for="s in sessions" :key="s.id"
@@ -112,7 +114,10 @@ onMounted(async () => {
 
     <div class="chat-thread">
       <div class="chat-thread-header">
-        <strong>{{ activeSession?.title || 'Pilih percakapan' }}</strong>
+        <div class="title-row">
+          <button class="mobile-back-btn" aria-label="Kembali" @click="mobileShowThread = false">←</button>
+          <strong>{{ activeSession?.title || 'Pilih percakapan' }}</strong>
+        </div>
       </div>
       <div class="chat-messages">
         <div v-for="m in messages" :key="m.id" class="chat-bubble" :class="m.role === 'user' ? 'chat-bubble-out' : 'chat-bubble-in'">

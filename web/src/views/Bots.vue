@@ -135,7 +135,8 @@ onMounted(load)
 
   <div class="card" style="padding: 0">
     <div v-if="loading" class="loading-state"><span class="spinner"></span> Memuat chatbot...</div>
-    <table class="table" v-else-if="bots.length">
+    <div v-else-if="bots.length" class="table-scroll">
+    <table class="table">
       <thead>
         <tr><th>Nama</th><th>Provider</th><th>Model</th><th>Status</th><th></th></tr>
       </thead>
@@ -158,6 +159,7 @@ onMounted(load)
         </tr>
       </tbody>
     </table>
+    </div>
     <div v-else class="empty-state">
       <div class="icon">✦</div>
       <p>Belum ada chatbot. Bikin satu buat mulai testing di Playground.</p>

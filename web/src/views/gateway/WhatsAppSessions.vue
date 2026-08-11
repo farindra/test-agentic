@@ -129,7 +129,8 @@ onUnmounted(() => {
 
   <div class="card" style="padding: 0">
     <div v-if="loading" class="loading-state"><span class="spinner"></span> Memuat sesi WhatsApp...</div>
-    <table class="table" v-else-if="sessions.length">
+    <div v-else-if="sessions.length" class="table-scroll">
+    <table class="table">
       <thead>
         <tr><th>Label</th><th>Nomor</th><th>Status</th><th>Bot</th><th>Auto-Reply</th><th></th></tr>
       </thead>
@@ -159,6 +160,7 @@ onUnmounted(() => {
         </tr>
       </tbody>
     </table>
+    </div>
     <div v-else class="empty-state">
       <div class="icon">▣</div>
       <p>Belum ada sesi WhatsApp. Bikin sesi baru lalu scan QR dari HP kamu.</p>

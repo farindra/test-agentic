@@ -97,7 +97,8 @@ onMounted(load)
 
   <div class="card" style="padding: 0">
     <div v-if="loading" class="loading-state"><span class="spinner"></span> Memuat provider...</div>
-    <table class="table" v-else-if="providers.length">
+    <div v-else-if="providers.length" class="table-scroll">
+    <table class="table">
       <thead>
         <tr>
           <th>Nama</th><th>Tipe</th><th>Model Default</th><th>API Key</th><th>Status</th><th></th>
@@ -129,6 +130,7 @@ onMounted(load)
         </tr>
       </tbody>
     </table>
+    </div>
     <div v-else class="empty-state">
       <div class="icon">⚙</div>
       <p>Belum ada AI provider. Tambahkan dulu sebelum bikin chatbot.</p>

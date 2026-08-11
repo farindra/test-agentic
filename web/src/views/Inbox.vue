@@ -7,6 +7,7 @@ const activeId = ref('')
 const messages = ref([])
 const error = ref('')
 const loading = ref(true)
+const mobileShowThread = ref(false)
 
 const active = computed(() => conversations.value.find((c) => c.id === activeId.value))
 
@@ -25,6 +26,7 @@ async function load() {
 async function select(id) {
   error.value = ''
   activeId.value = id
+  mobileShowThread.value = true
   try {
     const res = await api.get(`/conversations/${id}/messages`)
     messages.value = res.messages || []
@@ -58,7 +60,7 @@ onMounted(load)
 
   <div v-if="loading" class="loading-state card"><span class="spinner"></span> Memuat inbox...</div>
 
-  <div class="chat-panel" v-else-if="conversations.length">
+  <div class="chat-panel" :class="{ 'mobile-show-thread': mobileShowThread }" v-else-if="conversations.length">
     <div class="chat-list">
       <div
         v-for="c in conversations" :key="c.id"
@@ -72,7 +74,10 @@ onMounted(load)
 
     <div class="chat-thread">
       <div class="chat-thread-header">
-        <strong>{{ active?.contact_name || active?.contact_id || 'Pilih percakapan' }}</strong>
+        <div class="title-row">
+          <button class="mobile-back-btn" aria-label="Kembali" @click="mobileShowThread = false">←</button>
+          <strong>{{ active?.contact_name || active?.contact_id || 'Pilih percakapan' }}</strong>
+        </div>
         <div v-if="active" style="display:flex; align-items:center; gap:8px">
           <span class="text-muted" style="font-size:12px">Auto-reply bot</span>
           <label class="toggle">

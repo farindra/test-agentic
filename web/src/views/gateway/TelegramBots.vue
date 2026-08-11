@@ -94,7 +94,8 @@ onMounted(load)
 
   <div class="card" style="padding: 0">
     <div v-if="loading" class="loading-state"><span class="spinner"></span> Memuat bot Telegram...</div>
-    <table class="table" v-else-if="sessions.length">
+    <div v-else-if="sessions.length" class="table-scroll">
+    <table class="table">
       <thead>
         <tr><th>Label</th><th>Username</th><th>Status</th><th>Bot AI</th><th>Auto-Reply</th><th></th></tr>
       </thead>
@@ -125,6 +126,7 @@ onMounted(load)
         </tr>
       </tbody>
     </table>
+    </div>
     <div v-else class="empty-state">
       <div class="icon">✈</div>
       <p>Belum ada bot Telegram. Buat bot lewat @BotFather, lalu tempel token-nya di sini.</p>
