@@ -27,6 +27,9 @@ buat WhatsApp (whatsmeow) dan Telegram Bot.
 - **Inbox** — semua percakapan dari WhatsApp & Telegram dalam satu tempat,
   dengan toggle auto-reply per percakapan buat handover ke manusia.
 - **Auth** — single-admin, login JWT.
+- **Responsif** — sidebar jadi drawer di layar <768px, tabel bisa di-scroll
+  horizontal, chat panel (Playground/Inbox) jadi single-pane dengan tombol
+  kembali di mobile.
 
 ## Arsitektur
 
