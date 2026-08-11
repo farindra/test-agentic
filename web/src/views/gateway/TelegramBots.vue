@@ -130,14 +130,14 @@ onMounted(load)
   <div v-if="showCreate" class="modal-backdrop" @click.self="showCreate = false">
     <div class="modal">
       <h2 class="modal-title">Bot Telegram Baru</h2>
-      <form @submit.prevent="createSession">
+      <form @submit.prevent="createSession" autocomplete="off">
         <div class="field">
           <label>Label (opsional)</label>
-          <input class="input" v-model="form.label" placeholder="mis. CS Bot Telegram" />
+          <input class="input" v-model="form.label" placeholder="mis. CS Bot Telegram" autocomplete="off" />
         </div>
         <div class="field">
           <label>Bot Token (dari @BotFather)</label>
-          <input class="input" v-model="form.token" required placeholder="123456:ABC-DEF..." />
+          <input class="input" type="password" v-model="form.token" required placeholder="123456:ABC-DEF..." autocomplete="new-password" />
         </div>
         <div class="modal-actions">
           <button type="button" class="btn" @click="showCreate = false">Batal</button>

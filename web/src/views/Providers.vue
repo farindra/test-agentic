@@ -134,10 +134,10 @@ onMounted(load)
   <div v-if="showModal" class="modal-backdrop" @click.self="showModal = false">
     <div class="modal">
       <h2 class="modal-title">{{ editing ? 'Edit' : 'Tambah' }} Provider</h2>
-      <form @submit.prevent="save">
+      <form @submit.prevent="save" autocomplete="off">
         <div class="field">
           <label>Nama</label>
-          <input class="input" v-model="form.name" required placeholder="mis. OpenAI Produksi" />
+          <input class="input" v-model="form.name" required placeholder="mis. OpenAI Produksi" autocomplete="off" />
         </div>
         <div class="field">
           <label>Tipe</label>
@@ -147,15 +147,15 @@ onMounted(load)
         </div>
         <div class="field">
           <label>Base URL {{ ['ollama', 'custom'].includes(form.type) ? '(wajib)' : '(opsional, isi kalau beda dari default)' }}</label>
-          <input class="input" v-model="form.base_url" placeholder="https://..." />
+          <input class="input" v-model="form.base_url" placeholder="https://..." autocomplete="off" />
         </div>
         <div class="field">
           <label>API Key {{ editing ? '(kosongkan kalau tidak diganti)' : '' }}</label>
-          <input class="input" type="password" v-model="form.api_key" placeholder="sk-..." />
+          <input class="input" type="password" v-model="form.api_key" placeholder="sk-..." autocomplete="new-password" />
         </div>
         <div class="field">
           <label>Model Default</label>
-          <input class="input" v-model="form.default_model" placeholder="mis. gpt-4o-mini" />
+          <input class="input" v-model="form.default_model" placeholder="mis. gpt-4o-mini" autocomplete="off" />
         </div>
         <div class="field" style="flex-direction: row; align-items: center; gap: 10px">
           <label class="toggle">
