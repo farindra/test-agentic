@@ -10,6 +10,7 @@ const newLabel = ref('')
 
 const qrModal = reactive({ show: false, sessionId: '', image: '', ttl: 0 })
 let qrTimer = null
+let statusTimer = null
 
 async function load() {
   error.value = ''
@@ -37,6 +38,7 @@ async function openPairing(s) {
   qrModal.sessionId = s.id
   qrModal.show = true
   await fetchQR()
+  pollStatus()
 }
 
 async function fetchQR() {
@@ -47,14 +49,42 @@ async function fetchQR() {
     clearTimeout(qrTimer)
     qrTimer = setTimeout(fetchQR, Math.max((res.ttl_sec - 3) * 1000, 5000))
   } catch (e) {
-    error.value = e.message
-    qrModal.show = false
+    // "sesi sudah tersambung" itu tandanya HP-nya BARU AJA berhasil connect
+    // pas kita lagi nunggu QR — bukan error beneran, jadi jangan ditampilin
+    // sebagai alert merah. Tabel tetap wajib di-refresh di dua-duanya biar
+    // status "Disconnected" yang basi nggak nyangkut di UI.
+    if (!e.message.includes('tersambung')) {
+      error.value = e.message
+    }
+    closeQR()
   }
+}
+
+// Dipanggil tiap 3 detik selama modal QR kebuka: begitu status sesi jadi
+// "connected", modal ditutup otomatis + tabel di-refresh. Tanpa ini, FE cuma
+// nunggu sampai fetchQR() gagal (kode QR lama ditolak backend) buat nyadar
+// sesi udah tersambung — bisa nunggu lama tergantung sisa TTL kode terakhir.
+function pollStatus() {
+  clearTimeout(statusTimer)
+  statusTimer = setTimeout(async () => {
+    if (!qrModal.show) return
+    try {
+      const res = await api.get(`/gateway/whatsapp/sessions/${qrModal.sessionId}/status`)
+      if (res.state === 'connected') {
+        closeQR()
+        return
+      }
+    } catch (e) {
+      // diemin — biar fetchQR() yang nanganin error fatal (sesi kehapus, dst)
+    }
+    pollStatus()
+  }, 3000)
 }
 
 function closeQR() {
   qrModal.show = false
   clearTimeout(qrTimer)
+  clearTimeout(statusTimer)
   load()
 }
 
@@ -77,7 +107,10 @@ async function remove(s) {
 }
 
 onMounted(load)
-onUnmounted(() => clearTimeout(qrTimer))
+onUnmounted(() => {
+  clearTimeout(qrTimer)
+  clearTimeout(statusTimer)
+})
 </script>
 
 <template>

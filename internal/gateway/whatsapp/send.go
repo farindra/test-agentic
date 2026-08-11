@@ -18,16 +18,29 @@ func toJID(phone string) (types.JID, error) {
 	return types.NewJID(p, types.DefaultUserServer), nil
 }
 
+// Send: dipakai jalur "ketik nomor telepon terus kirim" (API kirim manual,
+// tombol "send" di UI) — nomor mentah dari manusia, jadi wajib dinormalisasi
+// dulu lewat toJID.
 func (m *Manager) Send(ctx context.Context, id, phone, text string) error {
-	ls := m.get(id)
-	if ls == nil || !ls.client.IsLoggedIn() {
-		return fmt.Errorf("sesi %q belum tersambung", id)
-	}
 	jid, err := toJID(phone)
 	if err != nil {
 		return err
 	}
-	_, err = ls.client.SendMessage(ctx, jid, &waE2E.Message{
+	return m.sendToJID(ctx, id, jid, text)
+}
+
+// sendToJID ngirim ke JID APA ADANYA, tanpa direkonstruksi dari nomor
+// telepon. Dipakai buat bales pesan masuk (auto-reply) — JID pengirim yang
+// kita terima dari whatsmeow (evt.Info.Sender) kadang berupa LID (identitas
+// privasi WhatsApp) bukan nomor telepon, dan itu WAJIB dipakai apa adanya:
+// direkonstruksi ulang jadi "<user>@s.whatsapp.net" bikin WhatsApp gak nemu
+// sesi enkripsinya ("no LID found ... from server") dan kiriman gagal.
+func (m *Manager) sendToJID(ctx context.Context, id string, jid types.JID, text string) error {
+	ls := m.get(id)
+	if ls == nil || !ls.client.IsLoggedIn() {
+		return fmt.Errorf("sesi %q belum tersambung", id)
+	}
+	_, err := ls.client.SendMessage(ctx, jid, &waE2E.Message{
 		Conversation: proto.String(text),
 	})
 	return err

@@ -26,8 +26,16 @@ func (m *Manager) handleIncomingMessage(sessionID string, evt *events.Message) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
+	// Bales ke JID PERSIS yang ngirim pesennya (evt.Info.Sender), bukan
+	// direkonstruksi dari nomor telepon (m.Send/toJID) — evt.Info.Sender.User
+	// kadang berupa LID (identitas privasi WhatsApp), bukan nomor telepon
+	// asli. Kalau direkonstruksi jadi "<user>@s.whatsapp.net", WhatsApp gak
+	// bisa nemuin sesi enkripsinya ("no LID found ... from server") dan
+	// kiriman gagal. JID yang kita TERIMA pesannya dari situ udah pasti
+	// valid buat dibales balik.
+	senderJID := evt.Info.Sender
 	send := func(ctx context.Context, replyText string) error {
-		return m.Send(ctx, sessionID, contact, replyText)
+		return m.sendToJID(ctx, sessionID, senderJID, replyText)
 	}
 
 	if err := m.hub.HandleIncoming(ctx, sessionID, contact, name, text, send); err != nil {
