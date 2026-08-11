@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 )
 
@@ -101,6 +102,60 @@ func (o *openAICompat) Chat(ctx context.Context, req ChatRequest) (ChatResponse,
 		PromptTokens:     out.Usage.PromptTokens,
 		CompletionTokens: out.Usage.CompletionTokens,
 	}, nil
+}
+
+type oaModelsResponse struct {
+	Data []struct {
+		ID string `json:"id"`
+	} `json:"data"`
+	Error *struct {
+		Message string `json:"message"`
+	} `json:"error"`
+}
+
+// ListModels manggil GET /models — endpoint standar OpenAI yang juga
+// diikutin DeepSeek dan mode OpenAI-compatible Ollama. Endpoint custom yang
+// gak nyediain ini bakal balikin error, itu diharapkan (UI fallback ke input
+// manual).
+func (o *openAICompat) ListModels(ctx context.Context) ([]string, error) {
+	url := strings.TrimRight(o.baseURL, "/") + "/models"
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	if o.apiKey != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+o.apiKey)
+	}
+
+	resp, err := o.client.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("aiprovider: request gagal: %w", err)
+	}
+	defer resp.Body.Close()
+
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var out oaModelsResponse
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, fmt.Errorf("aiprovider: response bukan JSON valid (status %d): %s", resp.StatusCode, truncate(raw, 300))
+	}
+	if resp.StatusCode >= 300 {
+		msg := fmt.Sprintf("status %d", resp.StatusCode)
+		if out.Error != nil && out.Error.Message != "" {
+			msg = out.Error.Message
+		}
+		return nil, fmt.Errorf("aiprovider: provider error: %s", msg)
+	}
+
+	models := make([]string, 0, len(out.Data))
+	for _, m := range out.Data {
+		models = append(models, m.ID)
+	}
+	sort.Strings(models)
+	return models, nil
 }
 
 func truncate(b []byte, n int) string {

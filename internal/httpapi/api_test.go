@@ -179,4 +179,58 @@ func TestBotAndPlaygroundFlowViaHTTP(t *testing.T) {
 	}
 }
 
+func TestListProviderModelsViaHTTP(t *testing.T) {
+	env := newTestEnv(t)
+
+	aiSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/models" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		json.NewEncoder(w).Encode(map[string]any{
+			"data": []map[string]string{{"id": "gpt-4o-mini"}, {"id": "gpt-4o"}},
+		})
+	}))
+	defer aiSrv.Close()
+
+	resp := env.do(t, http.MethodPost, "/api/providers/models", listModelsReq{Type: "custom", BaseURL: aiSrv.URL}, true)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	}
+	var out struct {
+		Models []string `json:"models"`
+	}
+	json.NewDecoder(resp.Body).Decode(&out)
+	if len(out.Models) != 2 {
+		t.Fatalf("expected 2 models, got %+v", out.Models)
+	}
+}
+
+func TestListProviderModelsFallsBackToStoredKeyOnEdit(t *testing.T) {
+	env := newTestEnv(t)
+
+	var gotAuthHeader string
+	aiSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuthHeader = r.Header.Get("Authorization")
+		json.NewEncoder(w).Encode(map[string]any{"data": []map[string]string{{"id": "m1"}}})
+	}))
+	defer aiSrv.Close()
+
+	createResp := env.do(t, http.MethodPost, "/api/providers", providerReq{
+		Name: "P", Type: "custom", BaseURL: aiSrv.URL, APIKey: "stored-secret-key",
+	}, true)
+	var created providerView
+	json.NewDecoder(createResp.Body).Decode(&created)
+
+	// api_key sengaja dikosongin di request, kayak yang dilakuin form edit di FE.
+	resp := env.do(t, http.MethodPost, "/api/providers/models", listModelsReq{
+		Type: "custom", BaseURL: aiSrv.URL, ProviderID: &created.ID,
+	}, true)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	}
+	if gotAuthHeader != "Bearer stored-secret-key" {
+		t.Fatalf("expected fallback ke key tersimpan, got header %q", gotAuthHeader)
+	}
+}
+
 func boolPtr(b bool) *bool { return &b }

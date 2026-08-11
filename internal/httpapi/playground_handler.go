@@ -99,7 +99,9 @@ func (a *API) playgroundChat(c *fiber.Ctx) error {
 
 	reply, err := a.orch.Reply(ctx, botID, history, req.Message)
 	if err != nil {
-		return errJSON(c, fiber.StatusBadGateway, err)
+		// 400, bukan 502: Cloudflare di depan origin nge-intercept status 5xx
+		// dan nimpa body-nya sama halaman error generik sendiri.
+		return errJSON(c, fiber.StatusBadRequest, err)
 	}
 
 	out, err := a.st.AddPlaygroundMessage(ctx, sessionID, "assistant", reply)

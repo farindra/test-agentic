@@ -43,6 +43,10 @@ type ChatResponse struct {
 
 type Provider interface {
 	Chat(ctx context.Context, req ChatRequest) (ChatResponse, error)
+	// ListModels ngambil daftar model yang tersedia langsung dari API
+	// provider, biar UI bisa nyodorin pilihan alih-alih user ngetik manual
+	// (dan gampang typo nama model).
+	ListModels(ctx context.Context) ([]string, error)
 }
 
 type Config struct {

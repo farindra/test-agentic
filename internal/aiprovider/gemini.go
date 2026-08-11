@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 )
 
@@ -126,4 +127,65 @@ func (g *geminiClient) Chat(ctx context.Context, req ChatRequest) (ChatResponse,
 		PromptTokens:     out.UsageMetadata.PromptTokenCount,
 		CompletionTokens: out.UsageMetadata.CandidatesTokenCount,
 	}, nil
+}
+
+type geminiModelsResponse struct {
+	Models []struct {
+		Name                       string   `json:"name"`
+		SupportedGenerationMethods []string `json:"supportedGenerationMethods"`
+	} `json:"models"`
+	Error *struct {
+		Message string `json:"message"`
+	} `json:"error"`
+}
+
+// ListModels manggil GET /models, terus disaring cuma yang support
+// "generateContent" — Gemini juga nyediain model buat embedding/tuning yang
+// gak relevan buat chatbot.
+func (g *geminiClient) ListModels(ctx context.Context) ([]string, error) {
+	endpoint := fmt.Sprintf("%s/models?pageSize=200&key=%s", strings.TrimRight(g.baseURL, "/"), url.QueryEscape(g.apiKey))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := g.client.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("aiprovider: request gagal: %w", err)
+	}
+	defer resp.Body.Close()
+
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var out geminiModelsResponse
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, fmt.Errorf("aiprovider: response bukan JSON valid (status %d): %s", resp.StatusCode, truncate(raw, 300))
+	}
+	if resp.StatusCode >= 300 {
+		msg := fmt.Sprintf("status %d", resp.StatusCode)
+		if out.Error != nil && out.Error.Message != "" {
+			msg = out.Error.Message
+		}
+		return nil, fmt.Errorf("aiprovider: provider error: %s", msg)
+	}
+
+	models := make([]string, 0, len(out.Models))
+	for _, m := range out.Models {
+		supported := false
+		for _, method := range m.SupportedGenerationMethods {
+			if method == "generateContent" {
+				supported = true
+				break
+			}
+		}
+		if !supported {
+			continue
+		}
+		models = append(models, strings.TrimPrefix(m.Name, "models/"))
+	}
+	sort.Strings(models)
+	return models, nil
 }

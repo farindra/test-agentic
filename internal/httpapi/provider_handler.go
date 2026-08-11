@@ -6,6 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
+	"test-agentic/internal/aiprovider"
 	"test-agentic/internal/store"
 )
 
@@ -144,7 +145,47 @@ func (a *API) testProvider(c *fiber.Ctx) error {
 	defer cancel()
 	reply, err := a.orch.TestProvider(ctx, c.Params("id"))
 	if err != nil {
-		return errJSON(c, fiber.StatusBadGateway, err)
+		// 400, bukan 502: Cloudflare di depan origin nge-intercept status 5xx
+		// dan nimpa body-nya sama halaman error generik sendiri.
+		return errJSON(c, fiber.StatusBadRequest, err)
 	}
 	return c.JSON(fiber.Map{"ok": true, "reply": reply})
+}
+
+type listModelsReq struct {
+	Type       string  `json:"type"`
+	BaseURL    string  `json:"base_url"`
+	APIKey     string  `json:"api_key"`
+	ProviderID *string `json:"provider_id"` // dikirim pas EDIT — fallback ambil key tersimpan kalau api_key dikosongin
+}
+
+// listProviderModels ngambil daftar model langsung dari API provider, buat
+// diisiin ke dropdown "Model Default" di UI (alih-alih user ngetik manual
+// dan gampang typo). Dipanggil dari modal create/edit — SEBELUM provider
+// disimpan — jadi nerima config lewat body, bukan lookup by id.
+func (a *API) listProviderModels(c *fiber.Ctx) error {
+	var req listModelsReq
+	if err := c.BodyParser(&req); err != nil || req.Type == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "type wajib"})
+	}
+	ctx, cancel := ctx15(c)
+	defer cancel()
+
+	apiKey := req.APIKey
+	if apiKey == "" && req.ProviderID != nil && *req.ProviderID != "" {
+		existing, err := a.st.GetProvider(ctx, *req.ProviderID)
+		if err == nil {
+			apiKey = existing.APIKey
+		}
+	}
+
+	client, err := aiprovider.New(aiprovider.Config{Kind: aiprovider.Kind(req.Type), BaseURL: req.BaseURL, APIKey: apiKey})
+	if err != nil {
+		return errJSON(c, fiber.StatusBadRequest, err)
+	}
+	models, err := client.ListModels(ctx)
+	if err != nil {
+		return errJSON(c, fiber.StatusBadRequest, err)
+	}
+	return c.JSON(fiber.Map{"models": models})
 }

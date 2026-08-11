@@ -34,7 +34,10 @@ func (a *API) telegramActivate(c *fiber.Ctx) error {
 	ctx, cancel := ctx30(c)
 	defer cancel()
 	if err := a.tgMgr.Activate(ctx, c.Params("id")); err != nil {
-		return errJSON(c, fiber.StatusBadGateway, err)
+		// 400, bukan 502: Cloudflare di depan origin nge-intercept status 5xx
+		// dan nimpa body-nya sama halaman error generik sendiri — pesan error
+		// aslinya (mis. "token tidak valid") jadi nggak pernah sampai ke user.
+		return errJSON(c, fiber.StatusBadRequest, err)
 	}
 	return c.JSON(fiber.Map{"success": true})
 }
@@ -43,7 +46,7 @@ func (a *API) telegramDeactivate(c *fiber.Ctx) error {
 	ctx, cancel := ctx30(c)
 	defer cancel()
 	if err := a.tgMgr.Deactivate(ctx, c.Params("id")); err != nil {
-		return errJSON(c, fiber.StatusBadGateway, err)
+		return errJSON(c, fiber.StatusBadRequest, err)
 	}
 	return c.JSON(fiber.Map{"success": true})
 }

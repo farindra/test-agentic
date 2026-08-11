@@ -46,6 +46,7 @@ func (a *API) Register(app *fiber.App) {
 	providers := api.Group("/providers")
 	providers.Get("", a.listProviders)
 	providers.Post("", a.createProvider)
+	providers.Post("/models", a.listProviderModels)
 	providers.Get("/:id", a.getProvider)
 	providers.Put("/:id", a.updateProvider)
 	providers.Delete("/:id", a.deleteProvider)

@@ -92,3 +92,31 @@ func TestGeminiChatProviderError(t *testing.T) {
 		t.Fatalf("expected provider error to surface, got %v", err)
 	}
 }
+
+func TestGeminiListModelsFiltersToGenerateContent(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("key") != "gem-key" {
+			t.Fatalf("api key tidak dikirim di query: %s", r.URL.RawQuery)
+		}
+		json.NewEncoder(w).Encode(map[string]any{
+			"models": []map[string]any{
+				{"name": "models/gemini-1.5-flash", "supportedGenerationMethods": []string{"generateContent"}},
+				{"name": "models/embedding-001", "supportedGenerationMethods": []string{"embedContent"}},
+				{"name": "models/gemini-1.5-pro", "supportedGenerationMethods": []string{"generateContent", "countTokens"}},
+			},
+		})
+	}))
+	defer srv.Close()
+
+	p, err := New(Config{Kind: KindGemini, BaseURL: srv.URL, APIKey: "gem-key"})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	models, err := p.ListModels(context.Background())
+	if err != nil {
+		t.Fatalf("ListModels: %v", err)
+	}
+	if len(models) != 2 || models[0] != "gemini-1.5-flash" || models[1] != "gemini-1.5-pro" {
+		t.Fatalf("expected cuma model generateContent (prefix models/ dibuang), got %+v", models)
+	}
+}

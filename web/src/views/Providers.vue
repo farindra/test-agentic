@@ -10,6 +10,9 @@ const testResult = reactive({})
 const testing = reactive({})
 
 const form = reactive({ name: '', type: 'openai', base_url: '', api_key: '', default_model: '', is_active: true })
+const modelOptions = ref([])
+const modelsError = ref('')
+const loadingModels = ref(false)
 
 const PROVIDER_TYPES = [
   { value: 'openai', label: 'ChatGPT (OpenAI)' },
@@ -32,13 +35,47 @@ async function load() {
 function openCreate() {
   editing.value = null
   Object.assign(form, { name: '', type: 'openai', base_url: '', api_key: '', default_model: '', is_active: true })
+  modelOptions.value = []
+  modelsError.value = ''
   showModal.value = true
 }
 
 function openEdit(p) {
   editing.value = p
   Object.assign(form, { name: p.name, type: p.type, base_url: p.base_url, api_key: '', default_model: p.default_model, is_active: p.is_active })
+  modelOptions.value = []
+  modelsError.value = ''
   showModal.value = true
+}
+
+// Ganti tipe provider = daftar model lama (punya provider sebelumnya) jadi
+// gak relevan lagi, jangan sampai kepilih diem-diem.
+function onTypeChange() {
+  modelOptions.value = []
+  modelsError.value = ''
+}
+
+async function loadModels() {
+  modelsError.value = ''
+  loadingModels.value = true
+  try {
+    const res = await api.post('/providers/models', {
+      type: form.type,
+      base_url: form.base_url,
+      api_key: form.api_key,
+      provider_id: editing.value ? editing.value.id : null,
+    })
+    modelOptions.value = res.models || []
+    if (modelOptions.value.length === 0) {
+      modelsError.value = 'Provider tidak mengembalikan model apa pun.'
+    } else if (!form.default_model) {
+      form.default_model = modelOptions.value[0]
+    }
+  } catch (e) {
+    modelsError.value = e.message
+  } finally {
+    loadingModels.value = false
+  }
 }
 
 async function save() {
@@ -141,7 +178,7 @@ onMounted(load)
         </div>
         <div class="field">
           <label>Tipe</label>
-          <select class="select" v-model="form.type">
+          <select class="select" v-model="form.type" @change="onTypeChange">
             <option v-for="t in PROVIDER_TYPES" :key="t.value" :value="t.value">{{ t.label }}</option>
           </select>
         </div>
@@ -154,8 +191,24 @@ onMounted(load)
           <input class="input" type="password" v-model="form.api_key" placeholder="sk-..." autocomplete="new-password" />
         </div>
         <div class="field">
-          <label>Model Default</label>
-          <input class="input" v-model="form.default_model" placeholder="mis. gpt-4o-mini" autocomplete="off" />
+          <div style="display:flex; justify-content:space-between; align-items:center">
+            <label style="margin:0">Model Default</label>
+            <button type="button" class="btn btn-sm btn-ghost" :disabled="loadingModels" @click="loadModels">
+              {{ loadingModels ? 'Mengambil...' : '⟳ Ambil daftar model' }}
+            </button>
+          </div>
+          <select v-if="modelOptions.length" class="select" v-model="form.default_model">
+            <option v-for="m in modelOptions" :key="m" :value="m">{{ m }}</option>
+          </select>
+          <input v-else class="input" v-model="form.default_model" placeholder="mis. gpt-4o-mini" autocomplete="off" />
+          <span v-if="modelsError" class="text-muted" style="color: var(--danger); font-size: 12px">{{ modelsError }}</span>
+          <span v-else-if="modelOptions.length" class="text-muted" style="font-size: 12px">
+            {{ modelOptions.length }} model ditemukan.
+            <a href="#" style="color: var(--accent)" @click.prevent="modelOptions = []">Ketik manual</a>
+          </span>
+          <span v-else class="text-muted" style="font-size: 12px">
+            Isi Base URL/API Key dulu (kalau perlu), baru klik "Ambil daftar model" — atau ketik manual.
+          </span>
         </div>
         <div class="field" style="flex-direction: row; align-items: center; gap: 10px">
           <label class="toggle">

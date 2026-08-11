@@ -101,3 +101,44 @@ func TestOpenAICompatDefaultsForOpenAIAndDeepSeek(t *testing.T) {
 		t.Fatalf("unexpected default base url: %s", oa2.baseURL)
 	}
 }
+
+func TestOpenAICompatListModels(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/models" || r.Method != http.MethodGet {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		if got := r.Header.Get("Authorization"); got != "Bearer test-key" {
+			t.Fatalf("unexpected Authorization header: %q", got)
+		}
+		json.NewEncoder(w).Encode(map[string]any{
+			"data": []map[string]string{{"id": "gpt-4o-mini"}, {"id": "gpt-4o"}},
+		})
+	}))
+	defer srv.Close()
+
+	p, err := New(Config{Kind: KindCustom, BaseURL: srv.URL, APIKey: "test-key"})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	models, err := p.ListModels(context.Background())
+	if err != nil {
+		t.Fatalf("ListModels: %v", err)
+	}
+	if len(models) != 2 || models[0] != "gpt-4o" || models[1] != "gpt-4o-mini" {
+		t.Fatalf("unexpected models (harus urut alfabet): %+v", models)
+	}
+}
+
+func TestOpenAICompatListModelsProviderError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]any{"error": map[string]string{"message": "unknown endpoint"}})
+	}))
+	defer srv.Close()
+
+	p, _ := New(Config{Kind: KindCustom, BaseURL: srv.URL})
+	_, err := p.ListModels(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "unknown endpoint") {
+		t.Fatalf("expected provider error to surface, got %v", err)
+	}
+}
