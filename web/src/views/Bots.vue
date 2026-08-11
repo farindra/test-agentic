@@ -12,9 +12,46 @@ const form = reactive({
   name: '', provider_id: '', model: '', system_prompt: '',
   temperature: 0.7, max_tokens: 1024, is_active: true,
 })
+const modelOptions = ref([])
+const modelsError = ref('')
+const loadingModels = ref(false)
 
 function providerName(id) {
   return providers.value.find((p) => p.id === id)?.name || '—'
+}
+
+// Ganti provider = daftar model punya provider sebelumnya jadi gak relevan,
+// jangan sampai ke-simpen diem-diem buat provider yang baru dipilih.
+function onProviderChange() {
+  modelOptions.value = []
+  modelsError.value = ''
+}
+
+async function loadModels() {
+  const provider = providers.value.find((p) => p.id === form.provider_id)
+  if (!provider) {
+    modelsError.value = 'Pilih AI Provider dulu.'
+    return
+  }
+  modelsError.value = ''
+  loadingModels.value = true
+  try {
+    const res = await api.post('/providers/models', {
+      type: provider.type,
+      base_url: provider.base_url,
+      provider_id: provider.id,
+    })
+    modelOptions.value = res.models || []
+    if (modelOptions.value.length === 0) {
+      modelsError.value = 'Provider tidak mengembalikan model apa pun.'
+    } else if (!form.model) {
+      form.model = modelOptions.value[0]
+    }
+  } catch (e) {
+    modelsError.value = e.message
+  } finally {
+    loadingModels.value = false
+  }
 }
 
 async function load() {
@@ -31,12 +68,16 @@ async function load() {
 function openCreate() {
   editing.value = null
   Object.assign(form, { name: '', provider_id: providers.value[0]?.id || '', model: '', system_prompt: '', temperature: 0.7, max_tokens: 1024, is_active: true })
+  modelOptions.value = []
+  modelsError.value = ''
   showModal.value = true
 }
 
 function openEdit(b) {
   editing.value = b
   Object.assign(form, { ...b })
+  modelOptions.value = []
+  modelsError.value = ''
   showModal.value = true
 }
 
@@ -123,14 +164,31 @@ onMounted(load)
           </div>
           <div class="field">
             <label>AI Provider</label>
-            <select class="select" v-model="form.provider_id" required>
+            <select class="select" v-model="form.provider_id" required @change="onProviderChange">
               <option v-for="p in providers" :key="p.id" :value="p.id">{{ p.name }}</option>
             </select>
           </div>
         </div>
         <div class="field">
-          <label>Model (kosongkan buat pakai default provider)</label>
-          <input class="input" v-model="form.model" placeholder="mis. gpt-4o-mini" />
+          <div style="display:flex; justify-content:space-between; align-items:center">
+            <label style="margin:0">Model (kosongkan buat pakai default provider)</label>
+            <button type="button" class="btn btn-sm btn-ghost" :disabled="loadingModels" @click="loadModels">
+              {{ loadingModels ? 'Mengambil...' : '⟳ Ambil daftar model' }}
+            </button>
+          </div>
+          <select v-if="modelOptions.length" class="select" v-model="form.model">
+            <option value="">— pakai default provider —</option>
+            <option v-for="m in modelOptions" :key="m" :value="m">{{ m }}</option>
+          </select>
+          <input v-else class="input" v-model="form.model" placeholder="mis. gpt-4o-mini" />
+          <span v-if="modelsError" class="text-muted" style="color: var(--danger); font-size: 12px">{{ modelsError }}</span>
+          <span v-else-if="modelOptions.length" class="text-muted" style="font-size: 12px">
+            {{ modelOptions.length }} model ditemukan dari provider ini.
+            <a href="#" style="color: var(--accent)" @click.prevent="modelOptions = []">Ketik manual</a>
+          </span>
+          <span v-else class="text-muted" style="font-size: 12px">
+            Pilih provider, lalu klik "Ambil daftar model" — atau ketik manual.
+          </span>
         </div>
         <div class="field">
           <label>System Prompt</label>
