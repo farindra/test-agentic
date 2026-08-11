@@ -7,7 +7,7 @@ import { useAuthStore } from '../stores/auth'
 // dicoba tanpa harus buka .env. Jangan pakai pola ini di app yang beneran
 // production.
 const DEMO_USERNAME = 'admin'
-const DEMO_PASSWORD = 'F6u4xsrWAM8BHcijlwJK'
+const DEMO_PASSWORD = 'admin!23'
 
 const username = ref(DEMO_USERNAME)
 const password = ref(DEMO_PASSWORD)
