@@ -1,0 +1,16 @@
+# Go
+/test-agentic
+*.test
+
+# Data & secrets
+/data/*.db
+/data/*.db-*
+.env
+
+# Frontend
+/web/node_modules
+/web/dist/*
+!/web/dist/.gitkeep
+
+# Editor/OS
+.DS_Store

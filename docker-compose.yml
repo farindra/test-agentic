@@ -1,0 +1,38 @@
+# Nama project dikunci di sini supaya nama container-nya deterministik:
+# "test-agentic-app-1". Traefik di stack ceremai memakai file provider yang
+# merujuk container berdasarkan nama, jadi nama ini tidak boleh berubah.
+name: test-agentic
+
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Nilai ini menang atas .env supaya path DB selalu menunjuk ke volume,
+      # berapa pun isi DB_PATH di file .env.
+      DB_PATH: /app/data/test-agentic.db
+      PORT: 8080
+    volumes:
+      # SQLite (data aplikasi + sesi whatsmeow) disimpan di host supaya data
+      # tidak hilang saat container di-rebuild.
+      - ./data:/app/data
+    ports:
+      # Loopback saja — akses publik lewat domain via Traefik, bukan port ini.
+      - "127.0.0.1:4320:8080"
+    networks:
+      - ceremai
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+networks:
+  # Ikut network milik stack ceremai supaya Traefik bisa menjangkau container
+  # ini lewat nama. Network-nya dibuat oleh stack tersebut, bukan oleh file ini.
+  ceremai:
+    external: true
+    name: ceremai
